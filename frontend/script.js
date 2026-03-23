@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     courseTitles = document.getElementById('courseTitles');
     
     setupEventListeners();
+    document.getElementById('newChatBtn').addEventListener('click', createNewSession);
     createNewSession();
     loadCourseStats();
 });
@@ -122,10 +123,16 @@ function addMessage(content, type, sources = null, isWelcome = false) {
     let html = `<div class="message-content">${displayContent}</div>`;
     
     if (sources && sources.length > 0) {
+        const pillStyle = 'display:inline-flex;align-items:center;padding:0.25rem 0.75rem;border-radius:999px;font-size:0.72rem;font-weight:500;background:#1e3a5f;color:#93c5fd;border:1px solid #2563eb;white-space:nowrap;text-decoration:none;line-height:1.4;';
+        const sourceLinks = sources.map(s =>
+            s.url
+                ? `<a class="source-tag" href="${s.url}" target="_blank" rel="noopener noreferrer" style="${pillStyle}">${escapeHtml(s.text)}</a>`
+                : `<span class="source-tag" style="${pillStyle}cursor:default;">${escapeHtml(s.text)}</span>`
+        ).join('');
         html += `
             <details class="sources-collapsible">
                 <summary class="sources-header">Sources</summary>
-                <div class="sources-content">${sources.join(', ')}</div>
+                <div class="sources-content">${sourceLinks}</div>
             </details>
         `;
     }
@@ -147,6 +154,9 @@ function escapeHtml(text) {
 // Removed removeMessage function - no longer needed since we handle loading differently
 
 async function createNewSession() {
+    if (currentSessionId) {
+        await fetch(`${API_URL}/session/${currentSessionId}`, { method: 'DELETE' });
+    }
     currentSessionId = null;
     chatMessages.innerHTML = '';
     addMessage('Welcome to the Course Materials Assistant! I can help you with questions about courses, lessons and specific content. What would you like to know?', 'assistant', null, true);

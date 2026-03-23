@@ -88,7 +88,16 @@ class VectorStore:
         # Step 3: Search course content
         # Use provided limit or fall back to configured max_results
         search_limit = limit if limit is not None else self.max_results
-        
+
+        # Guard: ChromaDB raises if n_results exceeds the total collection count
+        try:
+            collection_count = self.course_content.count()
+        except Exception:
+            collection_count = search_limit
+        if collection_count == 0:
+            return SearchResults.empty("No course content indexed yet.")
+        search_limit = min(search_limit, collection_count)
+
         try:
             results = self.course_content.query(
                 query_texts=[query],
@@ -264,4 +273,31 @@ class VectorStore:
             return None
         except Exception as e:
             print(f"Error getting lesson link: {e}")
+
+    def get_course_outline(self, course_name: str) -> Optional[Dict[str, Any]]:
+        """Resolve a (possibly partial) course name and return its structured outline."""
+        import json
+        resolved_title = self._resolve_course_name(course_name)
+        if not resolved_title:
+            return None
+
+        try:
+            results = self.course_catalog.get(ids=[resolved_title], include=["metadatas"])
+            if not results["metadatas"]:
+                return None
+
+            meta = results["metadatas"][0]
+            lessons = json.loads(meta.get("lessons_json", "[]"))
+
+            return {
+                "title": meta.get("title", resolved_title),
+                "course_link": meta.get("course_link"),
+                "lessons": [
+                    {"number": l["lesson_number"], "title": l["lesson_title"]}
+                    for l in lessons
+                ]
+            }
+        except Exception as e:
+            print(f"Error getting course outline: {e}")
+            return None
     
